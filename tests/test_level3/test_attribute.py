@@ -143,3 +143,59 @@ class TestAttribute(util.TestCase):
             ["1", "2"],
             flags=util.HTML
         )
+
+    def test_attribute_name_case_html(self):
+        """Test that attribute names are matched case insensitively in HTML."""
+
+        markup = """
+        <root>
+        <item id="1" DaTa-VaL="x"></item>
+        <item id="2" data-val="y"></item>
+        </root>
+        """
+
+        self.assert_selector(
+            markup,
+            "[data-val]",
+            ["1", "2"],
+            flags=util.HTML
+        )
+
+        self.assert_selector(
+            markup,
+            "[DATA-VAL]",
+            ["1", "2"],
+            flags=util.HTML
+        )
+
+    def test_attribute_name_case_xml(self):
+        """Test that attribute names are matched case sensitively in XML."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+        <item id="1" DaTa-VaL="x"/>
+        <item id="2" data-val="y"/>
+        </root>
+        """
+
+        self.assert_selector(
+            markup,
+            "[data-val]",
+            ["2"],
+            flags=util.XML
+        )
+
+        self.assert_selector(
+            markup,
+            "[DaTa-VaL]",
+            ["1"],
+            flags=util.XML
+        )
+
+        self.assert_selector(
+            markup,
+            "[DATA-VAL]",
+            [],
+            flags=util.XML
+        )

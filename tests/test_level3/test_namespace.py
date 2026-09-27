@@ -325,3 +325,156 @@ class TestNamespace(util.TestCase):
             namespaces={"xlink": "http://www.w3.org/1999/xlink"},
             flags=util.XHTML
         )
+
+    def test_attribute_universal_namespace_pinned(self):
+        """
+        Test attribute with a universal namespace selector.
+
+        PINNED BEHAVIOR: per the CSS specification, `[*|attr]` should match `attr`
+        in any namespace (including no namespace), but Soup Sieve currently only
+        matches the attribute with no namespace, same as `[attr]`. Pinned as the
+        actual behavior; revisit if the implementation changes.
+        """
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root xmlns:xlink="http://www.w3.org/1999/xlink">
+          <item id="1" xlink:href="a"/>
+          <item id="2" href="b"/>
+        </root>
+        """
+
+        self.assert_selector(
+            markup,
+            '[*|href]',
+            ['2'],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.XML
+        )
+
+    def test_attribute_no_namespace(self):
+        """Test attribute with an empty namespace selector (equivalent to no namespace)."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root xmlns:xlink="http://www.w3.org/1999/xlink">
+          <item id="1" xlink:href="a"/>
+          <item id="2" href="b"/>
+        </root>
+        """
+
+        self.assert_selector(
+            markup,
+            '[|href]',
+            ['2'],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.XML
+        )
+
+    def test_attribute_namespace_no_dict(self):
+        """Test attribute namespace selector when no namespaces are defined."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root xmlns:xlink="http://www.w3.org/1999/xlink">
+          <item id="1" xlink:href="a"/>
+          <item id="2" href="b"/>
+        </root>
+        """
+
+        # The prefix is unknown, so the selector matches nothing (it does not raise).
+        self.assert_selector(
+            markup,
+            '[xlink|href]',
+            [],
+            flags=util.XML
+        )
+
+    def test_attribute_escaped_colon_xml(self):
+        """Test escaped colon in an attribute name matches the whole key in XML."""
+
+        markup = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root xmlns:xlink="http://www.w3.org/1999/xlink">
+          <item id="1" xlink:href="a"/>
+          <item id="2" href="b"/>
+        </root>
+        """
+
+        # `xlink\:href` is read as a single attribute name and matched against the
+        # whole attribute key, so it matches the namespaced attribute.
+        self.assert_selector(
+            markup,
+            '[xlink\\:href]',
+            ['1'],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.XML
+        )
+
+        # Attribute names are case sensitive in XML.
+        self.assert_selector(
+            markup,
+            '[XLINK\\:HREF]',
+            [],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.XML
+        )
+
+    def test_attribute_namespace_prefix_ignored_html_pinned(self):
+        r"""
+        Test attribute namespace selector in an HTML tree without namespace support.
+
+        PINNED BEHAVIOR: `html.parser` (and `lxml` HTML) trees carry no attribute
+        namespace information, so the prefix is silently dropped and `[xlink|href]`
+        degrades to `[href]`, matching an unrelated plain `href` attribute.
+        Pinned as the actual behavior; use the escaped form `[xlink\\:href]` to
+        target the literal attribute key in HTML.
+        """
+
+        markup = """
+        <div>
+          <item id="1" xlink:href="a"></item>
+          <item id="2" href="b"></item>
+        </div>
+        """
+
+        self.assert_selector(
+            markup,
+            '[xlink|href]',
+            ['2'],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.PYHTML
+        )
+
+        self.assert_selector(
+            markup,
+            '[xlink|href]',
+            ['2'],
+            namespaces={"xlink": "http://www.w3.org/1999/xlink"},
+            flags=util.LXML_HTML
+        )
+
+    def test_attribute_escaped_colon_html(self):
+        """Test escaped colon in an attribute name matches the literal key in HTML."""
+
+        markup = """
+        <div>
+          <item id="1" xlink:href="a"></item>
+          <item id="2" href="b"></item>
+        </div>
+        """
+
+        self.assert_selector(
+            markup,
+            '[xlink\\:href]',
+            ['1'],
+            flags=util.PYHTML
+        )
+
+        # Attribute names are case insensitive in HTML.
+        self.assert_selector(
+            markup,
+            '[XLINK\\:HREF]',
+            ['1'],
+            flags=util.PYHTML
+        )

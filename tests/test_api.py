@@ -685,3 +685,72 @@ class TestSyntaxErrorReporting(util.TestCase):
         self.assertEqual(e.line, None)
         self.assertEqual(e.col, None)
         self.assertEqual(str(e), 'Syntax Message')
+
+
+class TestSyntaxVsEmptyMatch(util.TestCase):
+    """
+    Test the distinction between parse failures and empty matches.
+
+    A malformed selector must raise `SelectorSyntaxError` at compile time,
+    while a valid selector that matches nothing must compile fine and simply
+    return no results.
+    """
+
+    MARKUP = """
+    <div id="1" dir="rtl">
+    <p id="2" class="a"></p>
+    <p id="3"></p>
+    </div>
+    """
+
+    def test_nth_of_s_syntax_error(self):
+        """Test malformed `of S` in `:nth-child()` raises at compile time."""
+
+        with self.assertRaises(sv.SelectorSyntaxError):
+            sv.compile(':nth-child(2n of)')
+
+    def test_nth_of_s_empty_match(self):
+        """Test valid `of S` that matches nothing returns no results."""
+
+        pattern = sv.compile(':nth-child(1 of .missing)')
+        soup = self.soup(self.MARKUP, 'html.parser')
+        self.assertEqual(pattern.select(soup), [])
+
+    def test_has_syntax_error(self):
+        """Test empty `:has()` raises at compile time."""
+
+        with self.assertRaises(sv.SelectorSyntaxError):
+            sv.compile('div:has()')
+
+    def test_has_empty_match(self):
+        """Test valid `:has()` that matches nothing returns no results."""
+
+        pattern = sv.compile('div:has(> .missing)')
+        soup = self.soup(self.MARKUP, 'html.parser')
+        self.assertEqual(pattern.select(soup), [])
+
+    def test_lang_syntax_error(self):
+        """Test empty `:lang()` raises at compile time."""
+
+        with self.assertRaises(sv.SelectorSyntaxError):
+            sv.compile(':lang()')
+
+    def test_lang_empty_match(self):
+        """Test valid `:lang()` that matches nothing returns no results."""
+
+        pattern = sv.compile(':lang(fr)')
+        soup = self.soup(self.MARKUP, 'html.parser')
+        self.assertEqual(pattern.select(soup), [])
+
+    def test_dir_syntax_error(self):
+        """Test `:dir()` with an unsupported value raises at compile time."""
+
+        with self.assertRaises(sv.SelectorSyntaxError):
+            sv.compile(':dir(auto)')
+
+    def test_dir_empty_match(self):
+        """Test valid `:dir()` that matches nothing returns no results."""
+
+        pattern = sv.compile('div:dir(ltr)')
+        soup = self.soup(self.MARKUP, 'html.parser')
+        self.assertEqual(pattern.select(soup), [])

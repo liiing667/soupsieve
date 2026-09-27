@@ -175,3 +175,78 @@ class TestHas(util.TestCase):
         """Test `:has()` fails with trailing combinator."""
 
         self.assert_raises(':has(> has >)', SelectorSyntaxError)
+
+    def test_has_nested_has(self):
+        """Test `:has()` nested within `:has()`."""
+
+        markup = """
+        <div id="1"><span><a></a></span></div>
+        <div id="2"><span></span></div>
+        """
+
+        self.assert_selector(
+            markup,
+            'div:has(:has(a))',
+            ['1'],
+            flags=util.HTML
+        )
+
+        self.assert_selector(
+            markup,
+            'div:has(span:has(a))',
+            ['1'],
+            flags=util.HTML
+        )
+
+    def test_has_nested_has_in_not(self):
+        """Test nested `:has()` within `:not()`."""
+
+        markup = """
+        <div id="1"><span><a></a></span></div>
+        <div id="2"><span></span></div>
+        """
+
+        self.assert_selector(
+            markup,
+            'div:has(:not(:has(a)))',
+            ['1', '2'],
+            flags=util.HTML
+        )
+
+    def test_has_nested_empty_inner(self):
+        """Test that an empty inner `:has()` fails at parse time."""
+
+        self.assert_raises(':has(:has())', SelectorSyntaxError)
+
+    def test_has_valid_but_empty_match(self):
+        """Test `:has()` that is valid, but matches nothing."""
+
+        # Syntax is valid, so no error is raised; the document simply has no matches.
+        self.assert_selector(
+            self.MARKUP2,
+            'div:has(> .missing)',
+            [],
+            flags=util.HTML
+        )
+
+    def test_has_scope_pinned(self):
+        """
+        Test `:scope` inside `:has()`.
+
+        PINNED BEHAVIOR: `:scope` currently resolves to the scope of the `select`
+        call (the document here), not the element that `:has()` is anchored to,
+        so this matches nothing. Browsers resolve `:scope` inside `:has()` to the
+        anchor element. Pinned as the actual behavior; revisit if the
+        implementation changes.
+        """
+
+        markup = """
+        <div id="1"><span></span></div>
+        """
+
+        self.assert_selector(
+            markup,
+            'div:has(:scope > span)',
+            [],
+            flags=util.HTML
+        )

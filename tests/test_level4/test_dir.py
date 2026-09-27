@@ -1,6 +1,7 @@
 """Test direction selectors."""
 from .. import util
 import soupsieve as sv
+from soupsieve import SelectorSyntaxError
 from bs4 import BeautifulSoup
 
 IFRAME_TEXT = BeautifulSoup('<iframe><div></div></iframe>', 'html.parser').iframe.text == '<div></div>'
@@ -213,3 +214,42 @@ class TestDir(util.TestCase):
             [],
             flags=util.HTML5
         )
+
+    def test_dir_empty(self):
+        """Test `:dir()` with no value fails at parse time."""
+
+        self.assert_raises(':dir()', SelectorSyntaxError)
+
+    def test_dir_invalid_value(self):
+        """Test `:dir()` only accepts `ltr` or `rtl`."""
+
+        self.assert_raises(':dir(auto)', SelectorSyntaxError)
+
+    def test_dir_fragment_default_pinned(self):
+        """
+        Test `:dir()` on a detached fragment with no `dir` attribute.
+
+        PINNED BEHAVIOR: an extracted fragment is treated as the root of its own
+        tree, and a root with no explicit direction defaults to `ltr`.
+        """
+
+        markup = """<div id="1"><span id="2">text</span></div>"""
+        for parser in util.available_parsers('html.parser', 'lxml', 'html5lib'):
+            soup = self.soup(markup, parser)
+            fragment = soup.div.extract()
+            self.assertTrue(sv.match(':root:dir(ltr)', fragment, flags=sv.DEBUG))
+            self.assertFalse(sv.match(':dir(rtl)', fragment, flags=sv.DEBUG))
+            # Children inherit the fragment root's default direction.
+            self.assertTrue(sv.match(':dir(ltr)', fragment.span, flags=sv.DEBUG))
+
+    def test_dir_fragment_rtl(self):
+        """Test `:dir()` on a detached fragment with an explicit direction."""
+
+        markup = """<div id="1" dir="rtl"><span id="2">text</span></div>"""
+        for parser in util.available_parsers('html.parser', 'lxml', 'html5lib'):
+            soup = self.soup(markup, parser)
+            fragment = soup.div.extract()
+            self.assertTrue(sv.match(':dir(rtl)', fragment, flags=sv.DEBUG))
+            self.assertFalse(sv.match(':dir(ltr)', fragment, flags=sv.DEBUG))
+            # Children inherit the fragment root's direction.
+            self.assertTrue(sv.match(':dir(rtl)', fragment.span, flags=sv.DEBUG))

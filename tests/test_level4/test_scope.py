@@ -78,3 +78,30 @@ class TestScope(util.TestCase):
             # `div` does have an element with the class `.wordshere`
             ids = [el.attrs['id'] for el in sv.select(':scope .wordshere', el, flags=sv.DEBUG)]
             self.assertEqual(sorted(ids), sorted(['pre']))
+
+    def test_scope_fragment(self):
+        """Test `:scope` on a detached fragment."""
+
+        markup = """<div id="1"><span id="2">text</span></div>"""
+        for parser in util.available_parsers('html.parser', 'lxml', 'html5lib', 'xml'):
+            soup = self.soup(markup, parser)
+            fragment = soup.div.extract()
+
+            # The fragment is the scope of the `match` call.
+            self.assertTrue(sv.match(':scope', fragment, flags=sv.DEBUG))
+
+            # The scope element itself is never returned by `select`.
+            self.assertEqual(sv.select(':scope', fragment, flags=sv.DEBUG), [])
+
+            # But it anchors child selectors.
+            ids = [el['id'] for el in sv.select(':scope > span', fragment, flags=sv.DEBUG)]
+            self.assertEqual(ids, ['2'])
+
+    def test_scope_xml_document(self):
+        """Test `:scope` on an XML document is the root element."""
+
+        markup = """<root><child id="1"/></root>"""
+        for parser in util.available_parsers('xml'):
+            soup = self.soup(markup, parser)
+            names = [el.name for el in sv.select(':scope', soup, flags=sv.DEBUG)]
+            self.assertEqual(names, ['root'])

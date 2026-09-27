@@ -186,3 +186,40 @@ class TestRoot(util.TestCase):
         soup = self.soup(markup, 'html.parser')
         ids = [el['id'] for el in soup.select(':root')]
         self.assertEqual(sorted(ids), sorted(['1']))
+
+    def test_root_extracted_fragment(self):
+        """Test that an extracted fragment is treated as the root of its own tree."""
+
+        markup = """<div id="1"><span id="2">text</span></div>"""
+        for parser in util.available_parsers('html.parser', 'lxml', 'html5lib', 'xml'):
+            soup = self.soup(markup, parser)
+            fragment = soup.div.extract()
+            self.assertTrue(sv.match(':root', fragment, flags=sv.DEBUG))
+            self.assertFalse(sv.match(':root', fragment.span, flags=sv.DEBUG))
+
+    def test_root_fragment_select(self):
+        """Test selecting `:root` on a detached fragment."""
+
+        markup = """<div id="1"><span id="2">text</span></div>"""
+        for parser in util.available_parsers('html.parser', 'lxml', 'html5lib', 'xml'):
+            soup = self.soup(markup, parser)
+            fragment = soup.div.extract()
+
+            # The fragment root is the context element and is never returned by `select`.
+            self.assertEqual(sv.select(':root', fragment, flags=sv.DEBUG), [])
+
+            # But it still anchors descendant selectors.
+            ids = [el['id'] for el in sv.select(':root span', fragment, flags=sv.DEBUG)]
+            self.assertEqual(ids, ['2'])
+
+    def test_root_comment_before_tag(self):
+        """Test that a comment before the tag does not block `:root`."""
+
+        markup = """
+        <!-- comment -->
+        <div id="1"></div>
+        """
+
+        soup = self.soup(markup, 'html.parser')
+        ids = [el['id'] for el in soup.select(':root')]
+        self.assertEqual(sorted(ids), sorted(['1']))

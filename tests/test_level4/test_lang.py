@@ -1,5 +1,6 @@
 """Test language selectors."""
 from .. import util
+from soupsieve import SelectorSyntaxError
 
 
 class TestLang(util.TestCase):
@@ -400,4 +401,70 @@ class TestLang(util.TestCase):
             "p:lang(de-DE)",
             [],
             flags=util.XHTML
+        )
+
+    def test_lang_valid_but_no_match(self):
+        """Test a valid language range that simply matches nothing."""
+
+        # Syntax is valid, so no error is raised; the document simply has no matches.
+        self.assert_selector(
+            self.MARKUP,
+            "p:lang(fr)",
+            [],
+            flags=util.HTML
+        )
+
+    def test_lang_empty(self):
+        """Test `:lang()` with no arguments fails at parse time."""
+
+        self.assert_raises(':lang()', SelectorSyntaxError)
+
+    def test_lang_trailing_comma(self):
+        """Test `:lang()` with a trailing comma fails at parse time."""
+
+        self.assert_raises(':lang(en,)', SelectorSyntaxError)
+
+    def test_lang_leading_comma(self):
+        """Test `:lang()` with a leading comma fails at parse time."""
+
+        self.assert_raises(':lang(,en)', SelectorSyntaxError)
+
+    def test_lang_double_comma(self):
+        """Test `:lang()` with an empty slot fails at parse time."""
+
+        self.assert_raises(':lang(en,,fr)', SelectorSyntaxError)
+
+    def test_lang_unescaped_wildcard(self):
+        """Test that an unescaped `*` in a language range fails at parse time."""
+
+        self.assert_raises(':lang(de-*-1996)', SelectorSyntaxError)
+
+    def test_lang_escaped_wildcard_vs_implicit(self):
+        """Test that an escaped wildcard in the middle behaves like the implicit wildcard."""
+
+        markup = """
+        <div lang="de-DE-1996">
+            <p id="1"></p>
+        </div>
+        <div lang="de-Latn-DE-1996">
+            <p id="2"></p>
+        </div>
+        <div lang="de-DE">
+            <p id="3"></p>
+        </div>
+        """
+
+        self.assert_selector(
+            markup,
+            "p:lang(de-\\*-1996)",
+            ['1', '2'],
+            flags=util.HTML
+        )
+
+        # Implicit wildcard matches the same elements.
+        self.assert_selector(
+            markup,
+            "p:lang(de-1996)",
+            ['1', '2'],
+            flags=util.HTML
         )
